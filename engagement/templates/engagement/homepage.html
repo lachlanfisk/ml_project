@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engagement Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            padding: 0;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .hidden {
+            display: none;
+        }
+        .loading {
+            display: none;
+            font-size: 14px;
+            color: #007bff;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if messages %}
+            <div style="margin-bottom: 20px;">
+                {% for message in messages %}
+                    <div style="padding: 10px; border-radius: 5px; margin: 5px auto; width: 80%;
+                                color: {% if message.tags == 'error' %}#721c24{% else %}#155724{% endif %};
+                                background-color: {% if message.tags == 'error' %}#f8d7da{% else %}#d4edda{% endif %};
+                                border: 1px solid {% if message.tags == 'error' %}#f5c6cb{% else %}#c3e6cb{% endif %};">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <h1>ML Data Pipeline</h1>
+        <div class="button-container">
+            <!-- Step 1: Import the Raw Data from the SE EForge Textbook -->
+            <form action="{% url 'engagement:manual_import' %}" method="post" onsubmit="storeSessionData(); showLoadingMessage();">
+                {% csrf_token %}
+                <button type="submit" id="import-button" disabled>Step 1: Import Data</button>
+            </form>
+        </div><br>
+        <div>
+            <!-- Step 2: Aggregrate the Raw Data -->
+            <button id="populate-olap-button" onclick="handleOLAPCube()">Step 2: Populate OLAP Cube</button>
+        </div><br>
+
+        <p id="loading-text" class="loading">Importing Data... Please wait.</p>
+        <p id="admin-link" class="hidden">
+            View the imported data using <a href="http://127.0.0.1:8000/admin" target="_blank">Django Admin</a> using the superadmin credentials.
+        </p>
+    </div>
+<script>
+        function getCookie(name) {
+            let match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            return match ? match[2] : null;
+        }
+        document.addEventListener("DOMContentLoaded", function () {
+            let sessionid = getCookie("sessionid");
+            if (!sessionid) {
+                console.log("No session found! Redirecting to auth-reminder.");
+                window.location.href = "auth-reminder/";  
+                return;
+            }
+            document.getElementById("import-button").disabled = false;
+
+            if (document.cookie.includes("data_imported=true")) {
+                document.getElementById("import-button").classList.add("hidden");
+                document.getElementById("admin-link").classList.remove("hidden");
+
+                // Check if OLAP Cube is populated
+                fetch("{% url 'engagement:check_olap_status' %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.olap_populated) {
+                            olapButton.textContent = "View OLAP Data";
+                            olapButton.onclick = function () {
+                                window.open("http://127.0.0.1:8000/admin", "_blank");
+                            };
+                        } else {
+                            document.getElementById("populate-olap-button").textContent = "Populate OLAP Cube";
+                            document.getElementById("populate-olap-button").setAttribute("onclick", "handleOLAPCube()");
+                        }
+                    });
+            }
+        });
+
+        function handleOLAPCube() {
+            fetch("{% url 'engagement:populate_olap_cube' %}", { method: "GET" })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    const olapButton = document.getElementById("populate-olap-button");
+                    olapButton.textContent = "View OLAP Data";
+                    olapButton.onclick = function () {
+                        window.open("http://127.0.0.1:8000/admin", "_blank");
+                    };
+                })
+                .catch(error => console.error("Error:", error));
+        }
+
+        function storeSessionData() {
+            const sessionid = localStorage.getItem("sessionid");
+            const csrftoken = localStorage.getItem("csrftoken");
+            const form = document.querySelector("form");
+
+            const sessionInput = document.createElement("input");
+            sessionInput.type = "hidden";
+            sessionInput.name = "sessionid";
+            sessionInput.value = sessionid;
+            form.appendChild(sessionInput);
+
+            const csrfInput = document.createElement("input");
+            csrfInput.type = "hidden";
+            csrfInput.name = "csrftoken";
+            csrfInput.value = csrftoken;
+            form.appendChild(csrfInput);
+
+            localStorage.removeItem("sessionid");
+            localStorage.removeItem("csrftoken");
+        }
+
+        function showLoadingMessage() {
+            document.getElementById("loading-text").style.display = "block";
+        }
+    </script>
+</body>
+</html>

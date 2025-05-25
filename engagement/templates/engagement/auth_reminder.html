@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Required</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            padding: 0;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        p {
+            font-size: 16px;
+        }
+        .message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .loading {
+            display: none;
+            font-size: 14px;
+            color: #007bff;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h2>ML Data Pipeline</h2>
+    <p>1. Log in to <a href="https://se.eforge.online" target="_blank">EForge SE</a></p>  
+    <p>2. Click the button below to authenticate.</p> 
+    <button id="auth-button" onclick="fetchSession()">Authenticate</button>
+    <p id="loading-text" class="loading">Authenticating... Please wait.</p>
+    <script>
+        function fetchSession() {
+            document.getElementById("auth-button").disabled = true;
+            document.getElementById("loading-text").style.display = "block";
+            fetch("https://se.eforge.online/textbook/get-session-info/", { credentials: "include" })
+            .then(response => response.json())
+            .then(data => {
+                if (data.sessionid) {
+                    document.cookie = `sessionid=${data.sessionid}; path=/;`;
+                    localStorage.setItem("sessionid", data.sessionid);
+                    localStorage.setItem("csrftoken", data.csrftoken);
+                    window.location.href = "http://127.0.0.1:8000/engagement";  
+                } else {
+                    alert("Session not found. Please log in.");
+                    document.getElementById("auth-button").disabled = false;  
+                    document.getElementById("loading-text").style.display = "none";
+                }
+            })
+            .catch(error => {
+                alert("Error fetching session. Please try again.");
+                console.error("Error fetching session:", error);
+                document.getElementById("auth-button").disabled = false;  
+                document.getElementById("loading-text").style.display = "none";
+            });
+        }
+    </script>
+</body>
+</html>
