@@ -23,6 +23,8 @@ from .models import (
     StudyEngagementFact,  
     ContentDimension, 
 )
+from engagement.train_model import train_model
+from .train_model import train_model
 
 DATA_API_URL = "https://se.eforge.online/textbook/api/user-engagement/"
 
@@ -389,4 +391,63 @@ def clear_session(request):
     response.delete_cookie("sessionid")
     response.delete_cookie("csrftoken")
     print("All session data removed.")
+    return redirect("engagement:auth_reminder")
+
+def export_engagement_csv(request):
+    file_path = os.path.join(settings.BASE_DIR, "student_engagement.csv")
+    row_count = 0
+    with open(file_path, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            "student_id", "page", "total_slide_time", "slides_opened_ratio",
+            "first_attempt_accuracy", "overall_accuracy", "recall_fluency",
+            "total_slides", "score"
+        ])
+
+        for record in StudyEngagementFact.objects.all():
+            writer.writerow([
+                record.student.id,
+                str(record.content_dim.page),
+                record.total_slide_time,
+                record.slides_opened_ratio,
+                record.first_attempt_accuracy,
+                record.overall_accuracy,
+                record.recall_fluency,
+                record.total_slides,
+                record.score,
+            ])
+            row_count += 1
+    messages.success(request, "Step 3 complete: Engagement data exported to server.")
+    response = redirect("engagement:homepage")
+    response.set_cookie("step3_complete", "true", max_age=10)
+    response.set_cookie("row_count", str(row_count), max_age=10)
     return response
+
+@csrf_exempt 
+def select_features_and_target(request):
+    if request.method == "POST":
+        try:
+            df = pd.read_csv("student_engagement.csv")
+            features = [
+                "total_slide_time", "slides_opened_ratio", "first_attempt_accuracy",
+                "overall_accuracy", "recall_fluency", "total_slides"
+            ]
+            target = "score"
+            # Save features and target to disk for use in training step
+            df[features + [target]].to_csv("training_data.csv", index=False)
+            return JsonResponse({"message": "Step 2 Complete: Features &Target Selected."})
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+def run_model_training(request):
+    try:
+        importances = train_model()
+        importance_text = ", ".join([f"{k}: {v}" for k, v in importances.items()])
+        messages.success(request, f"Step 5 complete: Model trained. Importances: {importance_text}")
+        response = redirect("engagement:homepage")
+        response.set_cookie("step5_complete", "true", max_age=10)
+        print("Step 5: Model trained.")
+        return response
+    except Exception as e:
+        messages.error(request, f"Error in model training: {str(e)}")
+        return redirect("engagement:homepage")

@@ -1,0 +1,6 @@
+student_id,page,total_slide_time,slides_opened_ratio,first_attempt_accuracy,overall_accuracy,recall_fluency,total_slides,score
+2,AI vs ML: Understanding the Difference,191,1.0,0.0,0.0,0.0,4,3
+2,Supervised Learning,3416,1.0,0.0,0.0,0.0,5,3
+2,Unsupervised Learning,725,1.0,0.0,0.0,0.0,6,4
+2,Semi-Supervised Learning,225,1.0,0.0,0.0,0.0,4,3
+2,Reinforcement Learning,188,1.0,0.0,0.0,0.0,4,3

@@ -47,6 +47,22 @@
             color: #007bff;
             margin-top: 10px;
         }
+        .message-box {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px auto;
+            width: 80%;
+        }
+        .message-success {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .message-error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
     </style>
 </head>
 <body>
@@ -54,10 +70,7 @@
         {% if messages %}
             <div style="margin-bottom: 20px;">
                 {% for message in messages %}
-                    <div style="padding: 10px; border-radius: 5px; margin: 5px auto; width: 80%;
-                                color: {% if message.tags == 'error' %}#721c24{% else %}#155724{% endif %};
-                                background-color: {% if message.tags == 'error' %}#f8d7da{% else %}#d4edda{% endif %};
-                                border: 1px solid {% if message.tags == 'error' %}#f5c6cb{% else %}#c3e6cb{% endif %};">
+                    <div class="message-box {% if message.tags == 'error' %}message-error{% else %}message-success{% endif %}">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -75,13 +88,54 @@
             <!-- Step 2: Aggregrate the Raw Data -->
             <button id="populate-olap-button" onclick="handleOLAPCube()">Step 2: Populate OLAP Cube</button>
         </div><br>
-
+        <div>
+            <!-- Step 3: Export Engagement Data to CSV -->
+            <form action="{% url 'engagement:export_engagement_csv' %}" method="get">
+                <button type="submit">Step 3: Export Engagement Data</button>
+            </form>
+        </div><br>
+        <div>
+            <!-- Step 4: Select Features & Target for the ML Model-->
+            <form action="{% url 'engagement:select_features' %}" method="post" id="select-features-form">
+            {% csrf_token %}
+                <button type="submit">Step 4: Download Training Data</button>
+            </form>
+        </div><br>
+        <div>
+            <!-- Step 5: Train Model -->
+            <form action="{% url 'engagement:train_model' %}" method="get">
+                <button type="submit">Step 5: Train the Model</button>
+            </form>
+        </div><br>
         <p id="loading-text" class="loading">Importing Data... Please wait.</p>
         <p id="admin-link" class="hidden">
             View the imported data using <a href="http://127.0.0.1:8000/admin" target="_blank">Django Admin</a> using the superadmin credentials.
         </p>
     </div>
-<script>
+    <script>
+    const step5 = document.cookie.match(/step5_importances=([^;]+)/);
+    if (step5) {
+        alert("Step 5 complete: " + decodeURIComponent(step5[1].replace(/\+/g, " ")));
+        document.cookie = "step5_importances=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        localStorage.setItem("step5_complete", "true");
+    }
+    if (document.cookie.includes("step4_complete=true")) {
+        alert("Step 4 complete: Features and target saved.");
+        document.cookie = "step4_complete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        localStorage.setItem("step4_complete", "true");
+    }
+    if (document.cookie.includes("step3_complete=true")) {
+        alert("Step 3 complete: Engagement data exported to server.");
+        document.cookie = "step3_complete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        localStorage.setItem("step3_complete", "true"); 
+
+        // Check the row count cookie
+        const rowCountMatch = document.cookie.match(/row_count=(\d+)/);
+        if (rowCountMatch && parseInt(rowCountMatch[1]) < 5) {
+            alert("Warning: The exported data contains fewer than 5 rows. Add more engagement activity for better training results.");
+        }
+        document.cookie = "row_count=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    }
         function getCookie(name) {
             let match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
             return match ? match[2] : null;
@@ -155,5 +209,6 @@
             document.getElementById("loading-text").style.display = "block";
         }
     </script>
+    </div>
 </body>
 </html>
