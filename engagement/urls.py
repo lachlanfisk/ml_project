@@ -13,4 +13,5 @@ urlpatterns = [
     path('clear-session/', views.clear_session, name='clear_session'),
     path("select-features/", views.select_features_and_target, name="select_features"),
     path("train-model/", views.run_model_training, name="train_model"),
+    path("predict-form/", views.predict_form_view, name="predict_form"),
 ]

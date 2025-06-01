@@ -112,6 +112,22 @@
             View the imported data using <a href="http://127.0.0.1:8000/admin" target="_blank">Django Admin</a> using the superadmin credentials.
         </p>
     </div>
+    <hr>
+    <h2>Real-Time Score Prediction</h2>
+    <form method="post" action="{% url 'engagement:predict_form' %}">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Predict Score</button>
+    </form>
+
+    {% if prediction_result %}
+        <p style="margin-top: 20px; font-weight: bold;">
+            <h3>Predicted Score: {{ prediction_result.score }} / 3</h3>
+            <strong>Category:</strong> {{ prediction_result.label }}<br>
+            <strong>Feedback:</strong> {{ prediction_result.feedback }}
+        </p>
+    {% endif %}
+
     <script>
     const step5 = document.cookie.match(/step5_importances=([^;]+)/);
     if (step5) {

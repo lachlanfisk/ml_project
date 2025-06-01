@@ -25,6 +25,9 @@ from .models import (
 )
 from engagement.train_model import train_model
 from .train_model import train_model
+from django import forms
+from django import forms
+import joblib
 
 DATA_API_URL = "https://se.eforge.online/textbook/api/user-engagement/"
 
@@ -451,3 +454,57 @@ def run_model_training(request):
     except Exception as e:
         messages.error(request, f"Error in model training: {str(e)}")
         return redirect("engagement:homepage")
+
+class PredictionForm(forms.Form):
+    page = forms.ModelChoiceField(
+        queryset=ContentDimension.objects.filter(
+            studyengagementfact__isnull=False
+        ).distinct(),
+        empty_label="Select a textbook page",
+        label="Choose a Page"
+    )
+
+def predict_form_view(request):
+    prediction_result = None
+    form = PredictionForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        page = form.cleaned_data["page"].page
+        student = User.objects.first()  # fixed student
+        content_dim = form.cleaned_data["page"]
+        try:
+            model = joblib.load("ml_model.joblib")
+            engagement = StudyEngagementFact.objects.get(student=student, content_dim=content_dim)
+            features = [
+                engagement.total_slide_time,
+                engagement.slides_opened_ratio,
+                engagement.first_attempt_accuracy,
+                engagement.overall_accuracy,
+                engagement.recall_fluency,
+                engagement.total_slides,
+            ]
+            prediction = model.predict([features])[0]
+            score = round(prediction, 2)
+            label, feedback = categorise_score(score)
+            prediction_result = {
+                "score": score,
+                "label": label,
+                "feedback": feedback
+            }
+        except Exception as e:
+            prediction_result = f"Error: {str(e)}"
+
+    return render(request, "engagement/homepage.html", {
+        "form": form,
+        "prediction_result": prediction_result
+    })
+
+def categorise_score(score):
+    if score < 1.0:
+        return "Needs Improvement", "The response is limited or off-topic. Try to expand your ideas and answer more directly."
+    elif score < 2.0:
+        return "Developing", "There’s some structure and effort, but more detail or accuracy would improve your work."
+    elif score < 2.8:
+        return "Competent", "Well done! The response shows understanding and effort. You’re almost there!"
+    else:
+        return "Excellent", "Outstanding! Clear, structured, and insightful writing. Great job!"
