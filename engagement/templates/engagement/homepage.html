@@ -1,3 +1,5 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -111,6 +113,13 @@
         <p id="admin-link" class="hidden">
             View the imported data using <a href="http://127.0.0.1:8000/admin" target="_blank">Django Admin</a> using the superadmin credentials.
         </p>
+        <div>
+            <!-- Step 6: Train and Visualize Decision Tree -->
+            <form action="{% url 'engagement:train_tree' %}" method="post">
+                {% csrf_token %}
+                <button type="submit">Step 6: Train and Visualize Decision Tree</button>
+            </form>
+        </div><br>
     </div>
     <hr>
     <h2>Real-Time Score Prediction</h2>
@@ -121,11 +130,25 @@
     </form>
 
     {% if prediction_result %}
-        <p style="margin-top: 20px; font-weight: bold;">
+        <div style="margin-top: 20px; padding: 15px; background-color: #eef; border-radius: 8px;">
             <h3>Predicted Score: {{ prediction_result.score }} / 3</h3>
             <strong>Category:</strong> {{ prediction_result.label }}<br>
-            <strong>Feedback:</strong> {{ prediction_result.feedback }}
-        </p>
+            <strong>Feedback:</strong> {{ prediction_result.feedback }}<br>
+            <strong>Hint:</strong> {{ prediction_result.hint }}
+        </div>
+    {% endif %}
+
+    <hr>
+    <h2>How the Model Makes Decisions</h2>
+    <p>This tree shows how student engagement features are used to predict performance.</p>
+    <img src="{% static 'images/decision_tree.png' %}" alt="Decision Tree" style="max-width:100%; border: 1px solid #ccc; border-radius: 8px;">
+
+    {% if tree_rules_text %}
+    <hr>
+    <h3>Full Decision Tree Rules</h3>
+    <pre style="text-align: left; background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto;">
+    {{ tree_rules_text }}
+    </pre>
     {% endif %}
 
     <script>

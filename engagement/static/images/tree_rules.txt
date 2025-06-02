@@ -1,0 +1,4 @@
+|--- total_slides <= 5.50
+|   |--- value: [3.00]
+|--- total_slides >  5.50
+|   |--- value: [4.00]

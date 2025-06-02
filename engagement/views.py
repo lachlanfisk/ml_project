@@ -28,6 +28,7 @@ from .train_model import train_model
 from django import forms
 from django import forms
 import joblib
+from .tree_model import train_and_visualise_tree
 
 DATA_API_URL = "https://se.eforge.online/textbook/api/user-engagement/"
 
@@ -467,6 +468,43 @@ class PredictionForm(forms.Form):
 def predict_form_view(request):
     prediction_result = None
     form = PredictionForm(request.POST or None)
+    tree_rules_text = None
+    if request.method == "POST" and form.is_valid():
+        page = form.cleaned_data["page"].page
+        student = User.objects.first()  # fixed student
+        content_dim = form.cleaned_data["page"]
+        try:
+            model = joblib.load("ml_model.joblib")
+            engagement = StudyEngagementFact.objects.get(student=student, content_dim=content_dim)
+            features = [
+                engagement.total_slide_time,
+                engagement.slides_opened_ratio,
+                engagement.first_attempt_accuracy,
+                engagement.overall_accuracy,
+                engagement.recall_fluency,
+                engagement.total_slides,
+            ]
+            prediction = model.predict([features])[0]
+            score = round(prediction, 2)
+            label, feedback = categorise_score(score)
+            feedback_message = interpret_tree_path(
+                engagement.slides_opened_ratio,
+                engagement.recall_fluency
+            )
+            prediction_result = {
+                "score": score,
+                "label": label,
+                "feedback": feedback,
+                "hint": feedback_message
+            }
+            tree_rules_text = read_tree_rules()
+        except Exception as e:
+            prediction_result = f"Error: {str(e)}"
+    return render(request, "engagement/homepage.html", {
+        "form": form,
+        "prediction_result": prediction_result,
+        "tree_rules_text": tree_rules_text
+    })
 
     if request.method == "POST" and form.is_valid():
         page = form.cleaned_data["page"].page
@@ -508,3 +546,53 @@ def categorise_score(score):
         return "Competent", "Well done! The response shows understanding and effort. You’re almost there!"
     else:
         return "Excellent", "Outstanding! Clear, structured, and insightful writing. Great job!"
+
+def train_decision_tree(request):
+    try:
+        train_and_visualise_tree()
+        messages.success(request, "Step 6 complete: Decision tree trained and visualised.")
+    except Exception as e:
+        messages.error(request, f"Error running tree visualiser: {e}")
+    return redirect("engagement:homepage")
+
+def interpret_tree_path(slides_opened_ratio, recall_fluency, total_slide_time=None, accuracy=None):
+    if slides_opened_ratio <= 0.45:
+        if recall_fluency is None or recall_fluency > 35:
+            return (
+                "You're opening less than half the slides and your recall speed is slow. "
+                "Try reviewing more slides and answering faster to improve your score."
+            )
+        else:
+            return (
+                "You're opening fewer slides, but your recall is decent. "
+                "Try exploring more content for stronger performance."
+            )
+    elif slides_opened_ratio > 0.45:
+        if recall_fluency is None:
+            return (
+                "You're reviewing enough slides, but we couldn’t measure your recall fluency. "
+                "Try completing more review questions to improve fluency tracking."
+            )
+        elif recall_fluency <= 35:
+            return (
+                "Excellent! You're reviewing thoroughly and answering quickly. Keep it up!"
+            )
+        else:
+            return (
+                "You're engaging well with the material, but try to answer review questions "
+                "more quickly for a better score."
+            )
+    return (
+        "Your engagement is good overall. Keep focusing on both content coverage and recall speed "
+        "to achieve your best results."
+    )
+
+def read_tree_rules():
+    import os
+    rules_path = os.path.join(os.path.dirname(__file__), "static", "images", "tree_rules.txt")
+    try:
+        with open(rules_path, "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        return None 
+    
