@@ -29,8 +29,35 @@ from django import forms
 from django import forms
 import joblib
 from .tree_model import train_and_visualise_tree
+from .linear_model import train_linear_model
+from .plot_linear_regression import plot_linear_relationships
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import joblib
+import matplotlib.pyplot as plt
+import os
 
 DATA_API_URL = "https://se.eforge.online/textbook/api/user-engagement/"
+
+class PredictionForm(forms.Form):
+    page = forms.ModelChoiceField(
+        queryset=ContentDimension.objects.filter(
+            studyengagementfact__isnull=False
+        ).distinct(),
+        empty_label="Select a textbook page",
+        label="Choose a Page"
+    )
+    model_choice = forms.ChoiceField(
+        choices=[
+            ("random_forest", "Random Forest"),
+            ("linear_regression", "Linear Regression"),
+        ],
+        widget=forms.RadioSelect,
+        initial="random_forest",
+        label="Select Model"
+    )
 
 def populate_olap_cube(request):
     student = User.objects.first()
@@ -471,10 +498,14 @@ def predict_form_view(request):
     tree_rules_text = None
     if request.method == "POST" and form.is_valid():
         page = form.cleaned_data["page"].page
-        student = User.objects.first()  # fixed student
+        student = User.objects.first()  # replace with actual logged-in student
         content_dim = form.cleaned_data["page"]
+        model_choice = form.cleaned_data["model_choice"]
         try:
-            model = joblib.load("ml_model.joblib")
+            if model_choice == "linear_regression":
+                model = joblib.load("linear_model.joblib")
+            else:
+                model = joblib.load("ml_model.joblib")
             engagement = StudyEngagementFact.objects.get(student=student, content_dim=content_dim)
             features = [
                 engagement.total_slide_time,
@@ -495,7 +526,8 @@ def predict_form_view(request):
                 "score": score,
                 "label": label,
                 "feedback": feedback,
-                "hint": feedback_message
+                "hint": feedback_message,
+                "model": "Linear Regression" if model_choice == "linear_regression" else "Random Forest"
             }
             tree_rules_text = read_tree_rules()
         except Exception as e:
@@ -503,38 +535,7 @@ def predict_form_view(request):
     return render(request, "engagement/homepage.html", {
         "form": form,
         "prediction_result": prediction_result,
-        "tree_rules_text": tree_rules_text
-    })
-
-    if request.method == "POST" and form.is_valid():
-        page = form.cleaned_data["page"].page
-        student = User.objects.first()  # fixed student
-        content_dim = form.cleaned_data["page"]
-        try:
-            model = joblib.load("ml_model.joblib")
-            engagement = StudyEngagementFact.objects.get(student=student, content_dim=content_dim)
-            features = [
-                engagement.total_slide_time,
-                engagement.slides_opened_ratio,
-                engagement.first_attempt_accuracy,
-                engagement.overall_accuracy,
-                engagement.recall_fluency,
-                engagement.total_slides,
-            ]
-            prediction = model.predict([features])[0]
-            score = round(prediction, 2)
-            label, feedback = categorise_score(score)
-            prediction_result = {
-                "score": score,
-                "label": label,
-                "feedback": feedback
-            }
-        except Exception as e:
-            prediction_result = f"Error: {str(e)}"
-
-    return render(request, "engagement/homepage.html", {
-        "form": form,
-        "prediction_result": prediction_result
+        "tree_rules_text": tree_rules_text,
     })
 
 def categorise_score(score):
@@ -595,4 +596,22 @@ def read_tree_rules():
             return f.read()
     except FileNotFoundError:
         return None 
-    
+
+def run_linear_plot_view(request):
+    try:
+        plot_linear_relationships()
+        messages.success(request, "Linear regression plots generated.")
+    except Exception as e:
+        messages.error(request, f"Error generating plots: {e}")
+    return redirect("engagement:homepage")
+
+def train_linear_model_view(request):
+    try:
+        coefs = train_linear_model()
+        messages.success(request, "Linear Regression trained. Coefficients: " + ", ".join([f"{k}: {v}" for k, v in coefs.items()]))
+        response = redirect("engagement:homepage")
+        response.set_cookie("step6_linear_complete", "true", max_age=10)
+        return response
+    except Exception as e:
+        messages.error(request, f"Error training linear regression model: {str(e)}")
+        return redirect("engagement:homepage")

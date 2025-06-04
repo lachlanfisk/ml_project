@@ -120,22 +120,33 @@
                 <button type="submit">Step 6: Train and Visualize Decision Tree</button>
             </form>
         </div><br>
+        <div>
+            <!-- Step 7: Train Linear Regression -->
+            <form action="{% url 'engagement:train_linear_model' %}" method="get">
+                <button type="submit">Step 7: Train Linear Regression</button>
+            </form>
+        </div><br>
+
     </div>
     <hr>
     <h2>Real-Time Score Prediction</h2>
     <form method="post" action="{% url 'engagement:predict_form' %}">
         {% csrf_token %}
-        {{ form.as_p }}
+        {{ form.page.label_tag }} {{ form.page }}
+        <p>{{ form.model_choice.label }}</p>
+        {% for radio in form.model_choice %}
+            <label>{{ radio.tag }} {{ radio.choice_label }}</label><br>
+        {% endfor %}
         <button type="submit">Predict Score</button>
     </form>
 
     {% if prediction_result %}
-        <div style="margin-top: 20px; padding: 15px; background-color: #eef; border-radius: 8px;">
-            <h3>Predicted Score: {{ prediction_result.score }} / 3</h3>
-            <strong>Category:</strong> {{ prediction_result.label }}<br>
-            <strong>Feedback:</strong> {{ prediction_result.feedback }}<br>
-            <strong>Hint:</strong> {{ prediction_result.hint }}
-        </div>
+    <div style="margin-top: 20px; padding: 15px; background-color: #eef; border-radius: 8px;">
+        <h3>Predicted Score ({{ prediction_result.model }}): {{ prediction_result.score }} / 3</h3>
+        <strong>Category:</strong> {{ prediction_result.label }}<br>
+        <strong>Feedback:</strong> {{ prediction_result.feedback }}<br>
+        <strong>Hint:</strong> {{ prediction_result.hint }}
+    </div>
     {% endif %}
 
     <hr>
@@ -150,6 +161,23 @@
     {{ tree_rules_text }}
     </pre>
     {% endif %}
+        <hr>
+    <h2>Linear Regression Visualisations</h2>
+
+    <p>This section shows how Linear Regression interprets engagement data:</p>
+
+    <h3>Feature Relationships</h3>
+    {% for feature in feature_list %}
+    <h4>{{ feature|capfirst }}</h4>
+    <img src="{% static 'images/linear_'|add:feature|add:'.png' %}" 
+        alt="{{ feature }} regression" 
+        style="max-width: 100%; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 20px;">
+    {% endfor %}
+
+    <h3>Model Accuracy</h3>
+    <img src="{% static 'images/linear_actual_vs_pred.png' %}" 
+        alt="Linear Regression Accuracy" 
+        style="max-width: 100%; border: 1px solid #ccc; border-radius: 8px;">
 
     <script>
     const step5 = document.cookie.match(/step5_importances=([^;]+)/);

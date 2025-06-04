@@ -15,4 +15,6 @@ urlpatterns = [
     path("train-model/", views.run_model_training, name="train_model"),
     path("predict-form/", views.predict_form_view, name="predict_form"),
     path("train-tree/", views.train_decision_tree, name="train_tree"),
+    path("train-linear/", views.train_linear_model_view, name="train_linear_model"),
+    path("plot-linear/", views.run_linear_plot_view, name="plot_linear"),
 ]
